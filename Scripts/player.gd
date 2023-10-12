@@ -11,7 +11,7 @@ extends CharacterBody2D
 var jump_count : int = 2
 var dash_count : int = 3
 @export var momentum : int = 0
-var dash_direction = 0
+var dash_direction = 1
 var dashing = false
 @export_category("Toggle Functions") # Double jump feature is disable by default (Can be toggled from inspector)
 @export var double_jump : = true
@@ -60,13 +60,16 @@ func movement():
 		dash_direction = 1
 	elif dashing:
 		velocity.x = momentum + dash_direction * move_speed
-	else:
-		velocity.x = lerp(velocity.x,0.,0.1)
+	elif Input.is_action_pressed("Crouch"):
+		crouch()
+		if is_on_floor():
+			velocity.x = lerp(velocity.x,0.,0.033)
 		
+	elif is_on_floor():
+		velocity.x = lerp(velocity.x,0.,0.1)
+	
 	if is_on_floor() and !dashing:
 		momentum = lerp(momentum * 1.0, 0., 0.1)
-	elif !dashing:
-		momentum = lerp(momentum * 1.0, 0., 0.015)
 	
 		
 	handle_dashing()
@@ -87,6 +90,7 @@ func handle_jumping():
 func handle_dashing():
 	if Input.is_action_just_pressed("dash"):
 		if is_on_floor():
+			velocity.y = -2
 			dash()
 		elif dash_count > 0:
 			dash()
@@ -95,6 +99,7 @@ func handle_dashing():
 			jump_count = max_jump_count
 # Player jump
 func jump():
+	dashing = false
 	jump_tween()
 	AudioManager.jump_sfx.play()
 	velocity.y = -jump_force
@@ -105,10 +110,13 @@ func dash():
 	velocity.x += momentum 
 	if !dashing:
 		dashing = true
-		await get_tree().create_timer(0.1).timeout
+		await get_tree().create_timer(0.12).timeout
 		dashing = false
 		
 # Handle Player Animations
+func crouch():
+	dashing = false
+	crouch_tween()
 func player_animations():
 	particle_trails.emitting = false
 	
@@ -151,6 +159,10 @@ func dash_tween():
 	var tween = create_tween()
 	tween.tween_property(self,"scale",Vector2(1.2,0.7),0.1)
 	tween.tween_property(self, "scale", Vector2.ONE, 0.1)
+func crouch_tween():
+	var tween = create_tween()
+	tween.tween_property(self,"scale",Vector2(0.99,0.5),0.1)
+	tween.tween_property(self, "scale", Vector2.ONE, 0.1)
 # --------- SIGNALS ---------- #
 
 # Reset the player's position to the current level spawn point if collided with any trap
@@ -158,4 +170,5 @@ func _on_collision_body_entered(_body):
 	if _body.is_in_group("Traps"):
 		AudioManager.death_sfx.play()
 		death_particles.emitting = true
+		momentum = 0
 		death_tween()
